@@ -1,0 +1,73 @@
+name: quest
+
+#Description des différents containers
+services:
+#Description du container mysql
+  mysql: 
+    image: mysql:8.0.45
+    container_name: quest-mysql
+    
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+
+    volumes:
+       # Pour initialiser la base
+      - ./quest-init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Pour persister les données après suppression / mise à jour du container
+      - mysql_data:/var/lib/mysql
+
+    networks:
+      - quest-rso
+
+    ports:
+      - 3308:3306
+
+    #On check si mysql est démarré
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost"]
+      timeout: 3s
+      retries: 10
+      interval: 5s
+
+  java:
+    image: ajc/quest-boot:latest
+
+    container_name: quest-boot
+
+    ports:
+      - 8080:8080
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://quest-mysql:3306/projet_quest
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+
+    networks:
+      - quest-rso
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+
+  web: 
+    image: ajc/quest-angular:latest
+
+    container_name: quest-angular-boot
+
+    networks:
+      - quest-rso
+
+    ports:
+      - "8081:80"
+
+    depends_on:
+      - java
+
+networks:
+  quest-rso:
+    name: quest
+
+volumes:
+  mysql_data:
+    name: quest-mysql
